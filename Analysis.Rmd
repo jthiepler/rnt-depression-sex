@@ -1,0 +1,82 @@
+---
+title: "Psych2B Project"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# The Analysis Plan
+
+## Research Question and Hypothesis
+
+Using the Horlin database, the purpose of this project is to address the question of the relationship between sex and repetitive negative thinking in regards to depression?
+
+Previous literature (Schuch et al., 2014; Spinhoven, van Hermert & Penninx, 2018) has shown that there is a link between Depression and Sex/Repetitive Negative Thinking respectively. However, to date there has been very little research on the relationship between Repetitive Negative Thinking and Sex. As such, we hypothesised that women score higher on the Repetitive Negative Thinking Questionnaire than men.
+
+## Consideration of Power
+```{r}
+library(pwr)
+pwr.t.test(n=30,sig.level=.05,power = 0.8, alternative="greater")
+```
+
+
+## DataWrangling
+```{r, warning=FALSE}
+library(broom)
+library(tidyverse)
+
+demo <- read_csv("demographics.csv")
+rtq <- read_csv("RepetitiveNegativeThinkingQuestionnaire.csv")
+
+#RTQ => Repetitive Thinking Questionaire
+dat_big <- inner_join(demo, rtq, "ID")
+```
+
+## Assumption Checks
+
+We plan to run a independent sample t-test. The assumptions of the analysis are equal variance and normality. We have checked and confirmed these through violin plots (see below). We have checked for/removed outliers based on the criteria of missing data in the RTQ and the Sex.
+
+```{r}
+#Removing participants with missing data in RTQ or Sex
+dat_clean <- select(dat_big, "ID", "sex", "RNTQ_10_total")%>%
+  filter(sex %in% c("1", "0")) %>%
+  filter(RNTQ_10_total != "N/A") %>%
+  mutate(sex = recode(sex, "0" = "male", "1" = "female"))
+
+#Check of normality with violin plots
+ggplot(dat_clean, aes(x = sex, y = RNTQ_10_total, group = sex, colour = sex, fill = sex))+
+  geom_boxplot(alpha = 0.6)+
+  geom_violin(alpha = 0.4)+
+  theme_bw()
+```
+
+## Descriptive Analysis
+
+Looking at the boxplots it would appear that there is no significant difference of RTQ scores between men and women.
+
+```{r}
+#Calculating group means
+group_means <- group_by(dat_clean, sex)%>%
+  summarise(n = n(), mean = mean(RNTQ_10_total, na.rm = T), sd = sd(RNTQ_10_total, na.rm = T), se = sd/sqrt(n))
+
+#Check of significance with boxplots
+ggplot(group_means, aes(x = sex, y = mean))+
+  geom_col()+
+  geom_errorbar(aes(x=sex, ymin=mean-(1.96*se), ymax=mean+(1.96*se), width=0.4, colour="orange", alpha=1, size=1.5)) 
+```
+
+## Inferential Analysis
+
+We performed a independant sample t-test comparing the RTQ scores of men and women. The results showed that there was no significant difference of RTQ scores between men and women.
+
+```{r}
+#
+sex_t <- t.test(dat_clean %>% filter(sex == "female") %>% pull(RNTQ_10_total),
+                dat_clean %>% filter(sex == "male") %>% pull(RNTQ_10_total),
+                var.equal = FALSE, alternative = "greater") %>% tidy()
+```
+
+## Statement regarding findings
+
+Based on these findings we did not find evidence to support the hypothesis that women score higher on the Repetitive Negative Thinking Questionnaire than men, meaning that more research and replications with larger sample size and more elaborate p-hacking skills are required.
